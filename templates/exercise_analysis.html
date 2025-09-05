@@ -1,0 +1,844 @@
+
+{% extends "base.html" %}
+
+{% block title %}Exercise Form Analysis - VisionFit AI{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+{% endblock %}
+
+{% block content %}
+<div class="container py-5 mt-4">
+    <!-- Header -->
+    <div class="row mb-5">
+        <div class="col-12 text-center">
+            <h1 class="display-4 fw-bold mb-3 text-gradient-primary">
+                <i class="fas fa-running me-3"></i>AI Form Analysis
+            </h1>
+            <p class="lead text-light">Real-time exercise form analysis using advanced pose detection</p>
+        </div>
+    </div>
+
+    <!-- Exercise Selection -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="glass-card p-4">
+                <h5 class="text-primary mb-3">
+                    <i class="fas fa-dumbbell me-2"></i>Select Exercise
+                </h5>
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <button class="btn btn-outline-primary w-100 exercise-btn active" data-exercise="pushup">
+                            <i class="fas fa-arrow-down me-2"></i>Push-ups
+                        </button>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <button class="btn btn-outline-primary w-100 exercise-btn" data-exercise="squat">
+                            <i class="fas fa-arrows-alt-v me-2"></i>Squats
+                        </button>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <button class="btn btn-outline-primary w-100 exercise-btn" data-exercise="jumping_jack">
+                            <i class="fas fa-star me-2"></i>Jumping Jacks
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Camera and Stats Section -->
+    <div class="row">
+        <!-- Camera Feed -->
+        <div class="col-lg-8 mb-4">
+            <div class="glass-card p-4">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="text-primary mb-0">
+                        <i class="fas fa-video me-2"></i>Camera Feed
+                    </h5>
+                    <div>
+                        <button id="startBtn" class="btn btn-success me-2">
+                            <i class="fas fa-play me-2"></i>Start Analysis
+                        </button>
+                        <button id="stopBtn" class="btn btn-danger" disabled>
+                            <i class="fas fa-stop me-2"></i>Stop
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="position-relative bg-dark rounded" style="min-height: 400px;">
+                    <video id="webcam" class="w-100 h-100 rounded" style="display: none;" autoplay muted playsinline></video>
+                    <canvas id="output-canvas" class="w-100 h-100 rounded position-absolute top-0 start-0"></canvas>
+                    
+                    <div id="camera-placeholder" class="d-flex align-items-center justify-content-center h-100 text-center text-muted">
+                        <div>
+                            <i class="fas fa-camera fa-3x mb-3"></i>
+                            <p class="mb-0">Click "Start Analysis" to begin</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Performance Stats -->
+        <div class="col-lg-4">
+            <div class="glass-card p-4 mb-4">
+                <h5 class="text-primary mb-3">
+                    <i class="fas fa-chart-line me-2"></i>Performance Stats
+                </h5>
+                
+                <!-- Rep Count -->
+                <div class="mb-4">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0">Repetitions</h6>
+                        <span id="rep-count" class="badge bg-primary fs-4">0</span>
+                    </div>
+                </div>
+
+                <!-- Form Score -->
+                <div class="mb-4">
+                    <h6>Form Score</h6>
+                    <div class="progress mb-2" style="height: 25px;">
+                        <div id="form-score-bar" class="progress-bar bg-success" role="progressbar" 
+                             style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+                            0%
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Current Status -->
+                <div class="mb-3">
+                    <h6>Status</h6>
+                    <span id="exercise-status" class="badge bg-secondary">Ready</span>
+                </div>
+            </div>
+
+            <!-- Live Feedback -->
+            <div class="glass-card p-4">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="text-primary mb-0">
+                        <i class="fas fa-comments me-2"></i>Live Feedback
+                    </h5>
+                    <div>
+                        <button id="audioFeedbackBtn" class="btn btn-sm btn-outline-primary" title="Toggle Audio Feedback">
+                            <i class="fas fa-volume-mute"></i>
+                        </button>
+                    </div>
+                </div>
+                <div id="feedback-container">
+                    <div class="feedback-item text-muted">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <span>Start exercising to receive feedback</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.exercise-btn.active {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+}
+
+.feedback-item {
+    padding: 0.5rem 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--white);
+}
+
+.feedback-item:last-child {
+    border-bottom: none;
+}
+
+.feedback-item.success {
+    color: var(--success);
+}
+
+.feedback-item.warning {
+    color: var(--warning);
+}
+
+.feedback-item.error {
+    color: var(--danger);
+}
+
+#output-canvas {
+    pointer-events: none;
+}
+
+#webcam {
+    transform: scaleX(-1); /* Mirror the video */
+}
+
+#output-canvas {
+    transform: scaleX(-1); /* Mirror the canvas to match */
+}
+</style>
+
+<!-- MediaPipe Scripts -->
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"></script>
+
+<script>
+class ExerciseFormAnalyzer {
+    constructor() {
+        this.pose = null;
+        this.camera = null;
+        this.isActive = false;
+        this.exerciseType = 'pushup';
+        
+        // Exercise counters
+        this.repCount = 0;
+        this.exerciseState = {
+            pushup: { state: 'up', lastAngle: 180 },
+            squat: { state: 'up', lastAngle: 180 },
+            jumping_jack: { state: 'closed', lastSpread: 0 }
+        };
+
+        // Audio feedback settings
+        this.audioFeedbackEnabled = false;
+        this.speechSynthesis = window.speechSynthesis;
+        this.lastSpokenFeedback = '';
+        this.speechUtterance = null;
+        this.voices = [];
+        
+        // Initialize voices
+        this.loadVoices();
+        if (speechSynthesis.onvoiceschanged !== undefined) {
+            speechSynthesis.onvoiceschanged = this.loadVoices.bind(this);
+        }
+
+        // DOM elements
+        this.webcam = document.getElementById('webcam');
+        this.canvas = document.getElementById('output-canvas');
+        this.ctx = this.canvas.getContext('2d');
+        this.startBtn = document.getElementById('startBtn');
+        this.stopBtn = document.getElementById('stopBtn');
+        this.repCountEl = document.getElementById('rep-count');
+        this.formScoreBar = document.getElementById('form-score-bar');
+        this.statusEl = document.getElementById('exercise-status');
+        this.feedbackContainer = document.getElementById('feedback-container');
+        this.placeholder = document.getElementById('camera-placeholder');
+        this.audioFeedbackBtn = document.getElementById('audioFeedbackBtn');
+
+        this.initializeEventListeners();
+    }
+    
+    loadVoices() {
+        // Load and cache available voices
+        this.voices = this.speechSynthesis.getVoices();
+        console.log('Voices loaded:', this.voices.length);
+    }
+
+    initializeEventListeners() {
+        this.startBtn.addEventListener('click', () => this.start());
+        this.stopBtn.addEventListener('click', () => this.stop());
+
+        // Exercise selection
+        document.querySelectorAll('.exercise-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('.exercise-btn').forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
+                this.setExerciseType(e.target.dataset.exercise);
+            });
+        });
+        
+        // Audio feedback toggle
+        this.audioFeedbackBtn.addEventListener('click', () => {
+            // Check if speech synthesis is supported
+            if (!window.speechSynthesis) {
+                alert('Speech synthesis is not supported in your browser. Please try using Chrome, Edge, or Safari.');
+                return;
+            }
+            
+            this.audioFeedbackEnabled = !this.audioFeedbackEnabled;
+            
+            if (this.audioFeedbackEnabled) {
+                this.audioFeedbackBtn.innerHTML = '<i class="fas fa-volume-up"></i>';
+                this.audioFeedbackBtn.classList.remove('btn-outline-primary');
+                this.audioFeedbackBtn.classList.add('btn-primary');
+                
+                // Force reload voices if needed
+                if (this.voices.length === 0) {
+                    this.loadVoices();
+                }
+                
+                // Speak initial message to confirm audio is working
+                setTimeout(() => {
+                    this.speakFeedback('Audio feedback enabled');
+                }, 100); // Small delay to ensure voices are loaded
+            } else {
+                this.audioFeedbackBtn.innerHTML = '<i class="fas fa-volume-mute"></i>';
+                this.audioFeedbackBtn.classList.remove('btn-primary');
+                this.audioFeedbackBtn.classList.add('btn-outline-primary');
+                
+                // Stop any ongoing speech
+                if (this.speechSynthesis.speaking) {
+                    this.speechSynthesis.cancel();
+                }
+            }
+        });
+    }
+    
+    speakFeedback(text) {
+        // Don't speak if audio feedback is disabled
+        if (!this.audioFeedbackEnabled) return;
+        
+        // Don't repeat the same feedback
+        if (text === this.lastSpokenFeedback && this.speechSynthesis.speaking) return;
+        
+        // Clean up the text (remove emojis)
+        const cleanText = text.replace(/[\u{1F300}-\u{1F6FF}\u{2600}-\u{26FF}]/gu, '').trim();
+        
+        // Create and configure speech utterance
+        if (this.speechSynthesis.speaking) {
+            this.speechSynthesis.cancel(); // Cancel current speech to prioritize new feedback
+        }
+        
+        this.speechUtterance = new SpeechSynthesisUtterance(cleanText);
+        this.speechUtterance.rate = 1.0;
+        this.speechUtterance.pitch = 1.0;
+        this.speechUtterance.volume = 1.0;
+        
+        // Use a voice that sounds clear and natural if available
+        // If voices aren't loaded yet, try loading them again
+        if (this.voices.length === 0) {
+            this.voices = this.speechSynthesis.getVoices();
+        }
+        
+        if (this.voices.length > 0) {
+            // Try to find a good English voice
+            const preferredVoice = this.voices.find(voice => 
+                voice.lang && voice.lang.includes('en') && (voice.name.includes('Google') || voice.name.includes('Natural'))
+            ) || this.voices[0];
+            this.speechUtterance.voice = preferredVoice;
+        }
+        
+        // Debug voice selection
+        console.log('Using voice:', this.speechUtterance.voice ? this.speechUtterance.voice.name : 'Default');
+        
+        // Speak the feedback
+        try {
+            this.speechSynthesis.speak(this.speechUtterance);
+            this.lastSpokenFeedback = text;
+        } catch (error) {
+            console.error('Speech synthesis error:', error);
+        }
+    }
+
+    setExerciseType(type) {
+        this.exerciseType = type;
+        this.resetCounters();
+        console.log(`Exercise type set to: ${type}`);
+    }
+
+    resetCounters() {
+        this.repCount = 0;
+        this.repCountEl.textContent = '0';
+        this.formScoreBar.style.width = '0%';
+        this.formScoreBar.textContent = '0%';
+        this.statusEl.textContent = 'Ready';
+        this.statusEl.className = 'badge bg-secondary';
+        
+        // Reset exercise states
+        this.exerciseState = {
+            pushup: { state: 'up', lastAngle: 180 },
+            squat: { state: 'up', lastAngle: 180 },
+            jumping_jack: { state: 'closed', lastSpread: 0 }
+        };
+    }
+
+    async start() {
+        try {
+            // Initialize MediaPipe Pose
+            this.pose = new Pose({
+                locateFile: (file) => {
+                    return `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`;
+                }
+            });
+
+            this.pose.setOptions({
+                modelComplexity: 1,
+                smoothLandmarks: true,
+                enableSegmentation: false,
+                smoothSegmentation: false,
+                minDetectionConfidence: 0.7,
+                minTrackingConfidence: 0.5
+            });
+
+            this.pose.onResults(this.onResults.bind(this));
+
+            // Get camera stream with error handling
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 },
+                        facingMode: 'user'
+                    }
+                });
+
+                this.webcam.srcObject = stream;
+                this.webcam.style.display = 'block';
+                this.placeholder.style.display = 'none';
+                
+                // Wait for video to be ready
+                await new Promise((resolve, reject) => {
+                    this.webcam.onloadedmetadata = () => {
+                        this.canvas.width = this.webcam.videoWidth;
+                        this.canvas.height = this.webcam.videoHeight;
+                        resolve();
+                    };
+                    // Add timeout to prevent hanging if metadata never loads
+                    setTimeout(() => {
+                        if (this.webcam.videoWidth === 0) {
+                            reject(new Error('Video metadata failed to load'));
+                        } else {
+                            resolve();
+                        }
+                    }, 3000);
+                });
+
+                // Initialize camera with MediaPipe Camera Utils
+                this.camera = new Camera(this.webcam, {
+                    onFrame: async () => {
+                        if (this.isActive) {
+                            try {
+                                await this.pose.send({ image: this.webcam });
+                            } catch (err) {
+                                console.error('Error in pose detection frame:', err);
+                            }
+                        }
+                    },
+                    width: this.webcam.videoWidth,
+                    height: this.webcam.videoHeight
+                });
+
+                await this.camera.start();
+                this.isActive = true;
+
+                // Update UI
+                this.startBtn.disabled = true;
+                this.stopBtn.disabled = false;
+                this.statusEl.textContent = 'Analyzing...';
+                this.statusEl.className = 'badge bg-success';
+
+                this.resetCounters();
+                console.log('Exercise analysis started successfully');
+            } catch (streamError) {
+                console.error('Camera stream error:', streamError);
+                alert('Failed to access camera: ' + streamError.message);
+                throw streamError;
+            }
+        } catch (error) {
+            console.error('Failed to start camera:', error);
+            alert('Camera access failed. Please allow camera permissions and try again.');
+        }
+    }
+
+    stop() {
+        try {
+            if (this.camera) {
+                this.camera.stop();
+            }
+
+            if (this.webcam && this.webcam.srcObject) {
+                const tracks = this.webcam.srcObject.getTracks();
+                tracks.forEach(track => track.stop());
+                this.webcam.srcObject = null;
+            }
+
+            this.isActive = false;
+            this.webcam.style.display = 'none';
+            this.placeholder.style.display = 'flex';
+
+            // Clear canvas
+            if (this.ctx && this.canvas) {
+                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+            }
+
+            // Update UI
+            this.startBtn.disabled = false;
+            this.stopBtn.disabled = true;
+            this.statusEl.textContent = 'Stopped';
+            this.statusEl.className = 'badge bg-secondary';
+
+            console.log('Exercise analysis stopped successfully');
+        } catch (error) {
+            console.error('Error stopping camera:', error);
+        }
+    }
+
+    onResults(results) {
+        if (!results.poseLandmarks) return;
+
+        // Clear canvas
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+        // Draw pose
+        this.drawPose(results.poseLandmarks);
+
+        // Analyze form
+        const analysis = this.analyzeForm(results.poseLandmarks);
+        this.updateUI(analysis);
+    }
+
+    drawPose(landmarks) {
+        // Draw connections
+        const connections = [
+            // Torso
+            [11, 12], [12, 24], [24, 23], [23, 11],
+            // Left arm
+            [11, 13], [13, 15],
+            // Right arm  
+            [12, 14], [14, 16],
+            // Left leg
+            [23, 25], [25, 27],
+            // Right leg
+            [24, 26], [26, 28]
+        ];
+
+        this.ctx.strokeStyle = '#A855F7';
+        this.ctx.lineWidth = 4;
+
+        connections.forEach(([start, end]) => {
+            const startPoint = landmarks[start];
+            const endPoint = landmarks[end];
+
+            if (startPoint && endPoint && startPoint.visibility > 0.5 && endPoint.visibility > 0.5) {
+                this.ctx.beginPath();
+                this.ctx.moveTo(startPoint.x * this.canvas.width, startPoint.y * this.canvas.height);
+                this.ctx.lineTo(endPoint.x * this.canvas.width, endPoint.y * this.canvas.height);
+                this.ctx.stroke();
+            }
+        });
+
+        // Draw key landmarks
+        const keyPoints = [11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28];
+        
+        keyPoints.forEach(index => {
+            const landmark = landmarks[index];
+            if (landmark && landmark.visibility > 0.5) {
+                this.ctx.fillStyle = '#34D399';
+                this.ctx.beginPath();
+                this.ctx.arc(
+                    landmark.x * this.canvas.width,
+                    landmark.y * this.canvas.height,
+                    8, 0, 2 * Math.PI
+                );
+                this.ctx.fill();
+            }
+        });
+    }
+
+    analyzeForm(landmarks) {
+        switch (this.exerciseType) {
+            case 'pushup':
+                return this.analyzePushup(landmarks);
+            case 'squat':
+                return this.analyzeSquat(landmarks);
+            case 'jumping_jack':
+                return this.analyzeJumpingJack(landmarks);
+            default:
+                return { reps: 0, formScore: 0, feedback: ['Unknown exercise'] };
+        }
+    }
+
+    analyzePushup(landmarks) {
+        const leftShoulder = landmarks[11];
+        const rightShoulder = landmarks[12];
+        const leftElbow = landmarks[13];
+        const rightElbow = landmarks[14];
+        const leftWrist = landmarks[15];
+        const rightWrist = landmarks[16];
+
+        if (!leftShoulder || !rightShoulder || !leftElbow || !rightElbow || !leftWrist || !rightWrist ||
+            leftShoulder.visibility < 0.5 || rightShoulder.visibility < 0.5 || 
+            leftElbow.visibility < 0.5 || rightElbow.visibility < 0.5 || 
+            leftWrist.visibility < 0.5 || rightWrist.visibility < 0.5) {
+            return { reps: this.repCount, formScore: 0, feedback: ['Position yourself so all body parts are visible'] };
+        }
+
+        // Calculate arm angles
+        const leftAngle = this.calculateAngle(
+            [leftShoulder.x, leftShoulder.y],
+            [leftElbow.x, leftElbow.y],
+            [leftWrist.x, leftWrist.y]
+        );
+
+        const rightAngle = this.calculateAngle(
+            [rightShoulder.x, rightShoulder.y],
+            [rightElbow.x, rightElbow.y],
+            [rightWrist.x, rightWrist.y]
+        );
+
+        const avgAngle = (leftAngle + rightAngle) / 2;
+        const state = this.exerciseState.pushup;
+        
+        // Store the current angle for smoothing
+        if (!state.angles) state.angles = [];
+        state.angles.push(avgAngle);
+        if (state.angles.length > 5) state.angles.shift(); // Keep only last 5 angles
+        
+        // Use smoothed angle for more stable detection
+        const smoothedAngle = state.angles.reduce((sum, angle) => sum + angle, 0) / state.angles.length;
+
+        // Count reps with proper thresholds and debouncing
+        if (state.state === 'up' && smoothedAngle < 90 && Math.abs(state.lastAngle - smoothedAngle) < 30) {
+            state.state = 'down';
+            console.log('Push-up: Down position detected');
+        } else if (state.state === 'down' && smoothedAngle > 160 && Math.abs(state.lastAngle - smoothedAngle) < 30) {
+            state.state = 'up';
+            this.repCount++;
+            console.log('Push-up: Rep counted:', this.repCount);
+        }
+        
+        state.lastAngle = smoothedAngle;
+
+        // Calculate form score
+        let formScore = 0;
+        if (smoothedAngle < 90) {
+            // Down position - good if angle is 60-90
+            formScore = Math.max(0, 100 - Math.abs(75 - smoothedAngle) * 2);
+        } else {
+            // Up position - good if angle is 160-180
+            formScore = Math.max(0, 100 - Math.abs(170 - smoothedAngle) * 2);
+        }
+
+        // Generate feedback
+        const feedback = [];
+        if (smoothedAngle < 60) {
+            feedback.push('⚠️ Don\'t go too low');
+        } else if (smoothedAngle < 90 && state.state === 'down') {
+            feedback.push('✅ Good depth, now push up');
+        } else if (smoothedAngle > 120 && smoothedAngle < 160) {
+            feedback.push('⚠️ Push all the way up');
+        } else if (smoothedAngle > 160) {
+            feedback.push('✅ Good form');
+        }
+
+        return { reps: this.repCount, formScore: Math.round(formScore), feedback };
+    }
+
+    analyzeSquat(landmarks) {
+        const leftHip = landmarks[23];
+        const rightHip = landmarks[24];
+        const leftKnee = landmarks[25];
+        const rightKnee = landmarks[26];
+        const leftAnkle = landmarks[27];
+        const rightAnkle = landmarks[28];
+
+        if (!leftHip || !rightHip || !leftKnee || !rightKnee || !leftAnkle || !rightAnkle ||
+            leftHip.visibility < 0.5 || rightHip.visibility < 0.5 || 
+            leftKnee.visibility < 0.5 || rightKnee.visibility < 0.5 || 
+            leftAnkle.visibility < 0.5 || rightAnkle.visibility < 0.5) {
+            return { reps: this.repCount, formScore: 0, feedback: ['Position yourself so all body parts are visible'] };
+        }
+
+        // Calculate knee angles
+        const leftAngle = this.calculateAngle(
+            [leftHip.x, leftHip.y],
+            [leftKnee.x, leftKnee.y],
+            [leftAnkle.x, leftAnkle.y]
+        );
+
+        const rightAngle = this.calculateAngle(
+            [rightHip.x, rightHip.y],
+            [rightKnee.x, rightKnee.y],
+            [rightAnkle.x, rightAnkle.y]
+        );
+
+        const avgAngle = (leftAngle + rightAngle) / 2;
+        const state = this.exerciseState.squat;
+        
+        // Store the current angle for smoothing
+        if (!state.angles) state.angles = [];
+        state.angles.push(avgAngle);
+        if (state.angles.length > 5) state.angles.shift(); // Keep only last 5 angles
+        
+        // Use smoothed angle for more stable detection
+        const smoothedAngle = state.angles.reduce((sum, angle) => sum + angle, 0) / state.angles.length;
+
+        // Count reps with proper thresholds and debouncing
+        if (state.state === 'up' && smoothedAngle < 120 && Math.abs(state.lastAngle - smoothedAngle) < 30) {
+            state.state = 'down';
+            console.log('Squat: Down position detected');
+        } else if (state.state === 'down' && smoothedAngle > 160 && Math.abs(state.lastAngle - smoothedAngle) < 30) {
+            state.state = 'up';
+            this.repCount++;
+            console.log('Squat: Rep counted:', this.repCount);
+        }
+        
+        state.lastAngle = smoothedAngle;
+
+        // Calculate form score
+        let formScore = 0;
+        if (smoothedAngle < 120) {
+            // Down position - good if angle is 80-110
+            formScore = Math.max(0, 100 - Math.abs(95 - smoothedAngle) * 1.5);
+        } else {
+            // Up position - good if angle is 160-180
+            formScore = Math.max(0, 100 - Math.abs(170 - smoothedAngle));
+        }
+
+        // Generate feedback
+        const feedback = [];
+        if (smoothedAngle < 80) {
+            feedback.push('⚠️ Don\'t go too deep');
+        } else if (smoothedAngle < 120 && state.state === 'down') {
+            feedback.push('✅ Good depth, now stand up');
+        } else if (smoothedAngle > 130 && smoothedAngle < 160) {
+            feedback.push('⚠️ Stand up completely');
+        } else if (smoothedAngle > 160) {
+            feedback.push('✅ Great squat form');
+        }
+
+        return { reps: this.repCount, formScore: Math.round(formScore), feedback };
+    }
+
+    analyzeJumpingJack(landmarks) {
+        const leftWrist = landmarks[15];
+        const rightWrist = landmarks[16];
+        const leftAnkle = landmarks[27];
+        const rightAnkle = landmarks[28];
+        const nose = landmarks[0];
+
+        if (!leftWrist || !rightWrist || !leftAnkle || !rightAnkle || !nose ||
+            leftWrist.visibility < 0.5 || rightWrist.visibility < 0.5 || 
+            leftAnkle.visibility < 0.5 || rightAnkle.visibility < 0.5 || 
+            nose.visibility < 0.5) {
+            return { reps: this.repCount, formScore: 0, feedback: ['Move into frame completely'] };
+        }
+
+        // Calculate spreads
+        const armSpread = Math.abs(leftWrist.x - rightWrist.x);
+        const legSpread = Math.abs(leftAnkle.x - rightAnkle.x);
+        
+        // Normalize by body size
+        const bodyHeight = Math.abs(nose.y - Math.min(leftAnkle.y, rightAnkle.y));
+        const armRatio = bodyHeight > 0 ? armSpread / bodyHeight : 0;
+        const legRatio = bodyHeight > 0 ? legSpread / bodyHeight : 0;
+        
+        // Average of arm and leg spread for more stable detection
+        const avgSpread = (armRatio + legRatio) / 2;
+        const state = this.exerciseState.jumping_jack;
+        
+        // Store the current spread for smoothing
+        if (!state.spreads) state.spreads = [];
+        state.spreads.push(avgSpread);
+        if (state.spreads.length > 5) state.spreads.shift(); // Keep only last 5 spreads
+        
+        // Use smoothed spread for more stable detection
+        const smoothedSpread = state.spreads.reduce((sum, spread) => sum + spread, 0) / state.spreads.length;
+        
+        // Determine if the pose is in open or closed position with debouncing
+        const isOpen = smoothedSpread > 0.25;
+        
+        // Count reps with debouncing to prevent false counts
+        if (state.state === 'closed' && isOpen && Math.abs(state.lastSpread - smoothedSpread) < 0.15) {
+            state.state = 'open';
+            console.log('Jumping Jack: Open position detected');
+        } else if (state.state === 'open' && !isOpen && Math.abs(state.lastSpread - smoothedSpread) < 0.15) {
+            state.state = 'closed';
+            this.repCount++;
+            console.log('Jumping Jack: Rep counted:', this.repCount);
+        }
+        
+        state.lastSpread = smoothedSpread;
+
+        // Calculate form score based on coordination between arms and legs
+        const coordination = Math.min(100, Math.abs(armRatio - legRatio) * 100);
+        const formScore = Math.max(0, 100 - coordination);
+
+        // Generate feedback
+        const feedback = [];
+        if (armRatio < 0.2 && isOpen) {
+            feedback.push('⚠️ Raise your arms higher');
+        }
+        if (legRatio < 0.15 && isOpen) {
+            feedback.push('⚠️ Jump with wider legs');
+        }
+        if (isOpen && formScore > 70) {
+            feedback.push('✅ Great coordination!');
+        } else if (!isOpen) {
+            feedback.push('✅ Return to center position');
+        }
+
+        return { reps: this.repCount, formScore: Math.round(formScore), feedback };
+    }
+
+    calculateAngle(a, b, c) {
+        const radians = Math.atan2(c[1] - b[1], c[0] - b[0]) - Math.atan2(a[1] - b[1], a[0] - b[0]);
+        let angle = Math.abs(radians * 180.0 / Math.PI);
+        if (angle > 180.0) {
+            angle = 360 - angle;
+        }
+        return angle;
+    }
+
+    updateUI(analysis) {
+        // Update rep count
+        this.repCountEl.textContent = analysis.reps;
+
+        // Update form score
+        const score = analysis.formScore || 0;
+        this.formScoreBar.style.width = `${score}%`;
+        this.formScoreBar.textContent = `${score}%`;
+
+        // Update form score color
+        if (score < 50) {
+            this.formScoreBar.className = 'progress-bar bg-danger';
+        } else if (score < 80) {
+            this.formScoreBar.className = 'progress-bar bg-warning';
+        } else {
+            this.formScoreBar.className = 'progress-bar bg-success';
+        }
+
+        // Update feedback
+        this.feedbackContainer.innerHTML = '';
+        
+        // Track if we have important feedback to speak
+        let mostImportantFeedback = '';
+        let hasCriticalFeedback = false;
+        
+        analysis.feedback.forEach(feedback => {
+            const div = document.createElement('div');
+            div.className = 'feedback-item';
+            
+            let className = 'feedback-item';
+            if (feedback.includes('✅')) {
+                className += ' success';
+                // Only use positive feedback if we don't have critical feedback
+                if (!hasCriticalFeedback && !mostImportantFeedback) {
+                    mostImportantFeedback = feedback;
+                }
+            } else if (feedback.includes('⚠️')) {
+                className += ' warning';
+                // Warning feedback is critical and should be spoken
+                hasCriticalFeedback = true;
+                mostImportantFeedback = feedback;
+            }
+            
+            div.className = className;
+            div.innerHTML = `<span>${feedback}</span>`;
+            this.feedbackContainer.appendChild(div);
+        });
+        
+        // Speak the most important feedback if available
+        if (mostImportantFeedback) {
+            this.speakFeedback(mostImportantFeedback);
+        }
+    }
+}
+
+// Initialize when page loads
+document.addEventListener('DOMContentLoaded', () => {
+    new ExerciseFormAnalyzer();
+});
+</script>
+{% endblock %}
