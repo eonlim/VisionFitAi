@@ -76,3 +76,47 @@ Preferred communication style: Simple, everyday language.
 ## Development Tools
 - **Gunicorn**: WSGI HTTP server for production deployment
 - **Python-dotenv**: Environment variable management
+
+# Deployment Guide
+
+## Railway Deployment
+
+VisionFit AI is configured for easy deployment on Railway. Follow these steps to deploy:
+
+1. **Create a Railway Account**
+   - Sign up at [railway.app](https://railway.app/) if you don't have an account
+
+2. **Install Railway CLI** (Optional)
+   - Install the Railway CLI for easier deployment: `npm i -g @railway/cli`
+   - Login using: `railway login`
+
+3. **Create a New Project**
+   - From the Railway dashboard, click "New Project"
+   - Select "Deploy from GitHub repo"
+   - Connect your GitHub account and select this repository
+
+4. **Configure Environment Variables**
+   - In your Railway project, go to the "Variables" tab
+   - Add the following environment variables:
+     - `SESSION_SECRET`: A secure random string for session encryption
+     - `DATABASE_URL`: Railway will automatically provide this for PostgreSQL
+     - `GOOGLE_API_KEY`: Your Google Gemini API key
+     - `PORT`: Railway will set this automatically
+
+5. **Add PostgreSQL Database**
+   - Click "+ New" and select "Database" → "PostgreSQL"
+   - Railway will automatically link the database to your project
+
+6. **Deploy Your Application**
+   - Railway will automatically detect the Procfile and deploy using Gunicorn
+   - The deployment will use the Python version specified in runtime.txt
+
+7. **Access Your Application**
+   - Once deployed, click "Generate Domain" in the "Settings" tab
+   - Your application will be available at the generated domain
+
+## Local Development
+
+1. Copy `.env.example` to `.env` and fill in your environment variables
+2. Install dependencies: `pip install -r requirements.txt`
+3. Run the application: `python run.py`

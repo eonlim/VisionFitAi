@@ -1,5 +1,6 @@
 import os
 import logging
+from urllib.parse import urlparse
 
 from flask import Flask
 from werkzeug.middleware.proxy_fix import ProxyFix
@@ -8,7 +9,7 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 from extensions import db, login_manager
 
 # Configure logging
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 
 def create_app():
     # Create the app
@@ -17,11 +18,17 @@ def create_app():
     app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 
     # Configure the database
-    app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL", "sqlite:///visionfit.db")
+    # Handle potential "postgres://" URLs from Railway
+    database_url = os.environ.get("DATABASE_URL", "sqlite:///visionfit.db")
+    if database_url.startswith("postgres://"):
+        database_url = database_url.replace("postgres://", "postgresql://", 1)
+    
+    app.config["SQLALCHEMY_DATABASE_URI"] = database_url
     app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
         "pool_recycle": 300,
         "pool_pre_ping": True,
     }
+    app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
     # Initialize extensions
     db.init_app(app)
@@ -53,4 +60,6 @@ import routes
 routes.register_routes(app)
 
 if __name__ == '__main__':
-    app.run(host='127.0.0.1', port=5000, debug=True)
+    # Use environment variables for host and port with fallbacks
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host='0.0.0.0', port=port, debug=False)
